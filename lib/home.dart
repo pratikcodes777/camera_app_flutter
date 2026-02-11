@@ -1,8 +1,13 @@
 import 'dart:io';
 
+import 'package:camera/cubit/image_cubit.dart';
 import 'package:camera/cubit/photo_cubit.dart';
+import 'package:camera/cubit/test_cubit.dart';
+import 'package:camera/model/test_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
+import 'loading_state_enum.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -12,10 +17,12 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  final TestModel test = TestModel(id: 1);
   // File? imageFile;
   @override
   Widget build(BuildContext context) {
-    final imageCubit = context.read<PhotoCubit>();
+    final imageCubit = context.read<ImageCubit>();
+
     return Scaffold(
       body: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -35,37 +42,28 @@ class _HomePageState extends State<HomePage> {
             //         height: 300,
             //         fit: BoxFit.contain,
             //       ),
-            child: BlocBuilder<PhotoCubit, PhotoState>(
+            child: BlocBuilder<ImageCubit, ImageState>(
+              buildWhen: (previous, current) =>
+                  previous.path != current.path ||
+                  previous.loadingState != current.loadingState,
               builder: (context, state) {
-                if (state is PhotoLoading) {
-                  return CircularProgressIndicator();
-                }
-                if (state is PhotoSelected) {
+                if (state.loadingState == LoadingStateEnum.loading) {
+                  return SizedBox(
+                    width: 300,
+                    height: 300,
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                } else if (state.loadingState == LoadingStateEnum.failure) {
+                  return SizedBox(
+                    width: 300,
+                    height: 300,
+                    child: Center(child: Text(state.error)),
+                  );
+                } else if (state.loadingState == LoadingStateEnum.success) {
                   return Image.file(
                     File(state.path),
                     width: 300,
                     height: 300,
-                    frameBuilder:
-                        (context, child, frame, wasSynchronouslyLoaded) {
-                          if (wasSynchronouslyLoaded) {
-                            return child;
-                          }
-                          return AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 300),
-                            child: frame == null
-                                ? Container(
-                                    width: 300,
-                                    height: 300,
-                                    color: Colors.grey.shade300,
-                                    child: const Center(
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    ),
-                                  )
-                                : child,
-                          );
-                        },
                     fit: BoxFit.contain,
                   );
                 } else {
@@ -103,12 +101,30 @@ class _HomePageState extends State<HomePage> {
                 child: Padding(
                   padding: EdgeInsets.all(8.0),
                   child: ElevatedButton(
-                    onPressed: imageCubit.takePhoto,
+                    onPressed: imageCubit.captureImage,
                     child: Text('Take Photo'),
                   ),
                 ),
               ),
             ],
+          ),
+          BlocBuilder<TestCubit, TestState>(
+            buildWhen: (previous, current) =>
+                previous.testModel != current.testModel ||
+                previous.loadingState != current.loadingState,
+            builder: (context, state) {
+              if (state.loadingState == LoadingStateEnum.loading) {
+                return CircularProgressIndicator();
+              } else if (state.loadingState == LoadingStateEnum.failure) {
+                return Text('Error');
+              } else {
+                return Text(state.testModel.name);
+              }
+            },
+          ),
+          TextButton(
+            onPressed: () => context.read<TestCubit>().fetchTestModel(),
+            child: Text('fetch'),
           ),
         ],
       ),
